@@ -1,0 +1,83 @@
+name: Daily Data Ingestion
+
+on:
+  schedule:
+    # Run at 8:00 AM UTC every day
+    - cron: '0 8 * * *'
+  # Allow manual triggering from GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Configure database connection
+      run: |
+        cat > config_secrets.py << EOF
+        DB_CONFIG = {
+            "host": "${{ secrets.DB_HOST }}",
+            "port": ${{ secrets.DB_PORT || 5432 }},
+            "database": "${{ secrets.DB_NAME || 'internet_outages' }}",
+            "user": "${{ secrets.DB_USER }}",
+            "password": "${{ secrets.DB_PASSWORD }}"
+        }
+        CLOUDFLARE_API_TOKEN = "${{ secrets.CLOUDFLARE_API_TOKEN }}"
+        EOF
+
+    - name: Ingest Cloudflare Outages Data
+      run: |
+        echo "Starting Cloudflare outages ingestion..."
+        python ingest_cloudflare.py
+      continue-on-error: true
+
+    - name: Ingest AI Bots Data
+      run: |
+        echo "Starting AI bots ingestion..."
+        python ingest_ai_bots.py
+      continue-on-error: true
+
+    - name: Ingest Device Type Data
+      run: |
+        echo "Starting device type ingestion..."
+        python ingest_device_type.py
+      continue-on-error: true
+
+    - name: Verify Cloudflare Data
+      run: |
+        echo "Verifying Cloudflare data..."
+        python verify_cloudflare.py
+      continue-on-error: true
+
+    - name: Verify AI Bots Data
+      run: |
+        echo "Verifying AI bots data..."
+        python verify_ai_bots.py
+      continue-on-error: true
+
+    - name: Verify Device Type Data
+      run: |
+        echo "Verifying device type data..."
+        python verify_device_type.py
+      continue-on-error: true
+
+    - name: Upload logs (on failure)
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: ingestion-logs
+        path: '**/logs'
+        if-no-files-found: ignore
