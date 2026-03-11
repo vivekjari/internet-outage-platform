@@ -1,83 +1,70 @@
-# GitHub Deployment Instructions
+# GitHub Actions & Neon Setup
 
-## 📋 Quick Summary
+## 📋 What You Need
 
-Your Internet Outage Platform is ready to deploy! The project includes:
-- ✅ Complete ingestion scripts for 3 data sources
-- ✅ PostgreSQL database integration
-- ✅ GitHub Actions workflow for daily scheduling at 8:00 AM UTC
-- ✅ Full documentation and setup guides
+This project automatically ingests data to **Neon cloud PostgreSQL** via GitHub Actions:
+- ✅ Daily automatic ingestion at 8:00 AM UTC
+- ✅ 3 Cloudflare APIs ingested (outages, AI bots, device type)
+- ✅ Cloud-hosted database (no local setup needed)
+- ✅ GitHub Actions handles all automation
 
-## 🚀 Quick Start - Deploy to GitHub
+## 🚀 Setup (5 Minutes)
 
-### Step 1: Create GitHub Repository
+### Step 1: Create Neon Account
 
-1. Go to https://github.com/new
-2. Enter repository name: `internet-outage-platform`
-3. Description: "Python-based data ingestion platform for monitoring internet outages from Cloudflare Radar APIs"
-4. Choose visibility: **Public** (recommended) or **Private**
-5. **IMPORTANT**: Do NOT check "Add .gitignore" or "Add a license" (we already have them)
-6. Click **Create repository**
+1. Go to https://neon.tech
+2. Click "Sign Up"
+3. Choose auth method (email or GitHub)
+4. Create free project named "internet-outage-platform"
+5. Select region closest to you
 
-### Step 2: Push Code to GitHub
+### Step 2: Get Neon Credentials
 
-Run these commands in your terminal:
+On Neon dashboard:
+1. Click "Connection string"
+2. Select "Pooled connection" → Python
+3. Copy the full connection string
 
-```bash
-cd /Users/vivekjariwala/Downloads/internet-outage-platform
-
-# Replace YOURUSERNAME with your actual GitHub username
-git remote add origin https://github.com/YOURUSERNAME/internet-outage-platform.git
-git branch -M main
-git push -u origin main
+**Example:**
+```
+postgresql://neondb_owner:AbCdEfGhIjKlMnOp@ep-cool-lake-a1b2c3d4.us-east-1.neon.tech/neondb?sslmode=require
 ```
 
-**If using SSH** (faster):
-```bash
-git remote add origin git@github.com:YOURUSERNAME/internet-outage-platform.git
-git branch -M main
-git push -u origin main
-```
+From this string, extract:
+- **DB_HOST**: ep-cool-lake-a1b2c3d4.us-east-1.neon.tech
+- **DB_PORT**: 5432
+- **DB_USER**: neondb_owner
+- **DB_PASSWORD**: AbCdEfGhIjKlMnOp
+- **DB_NAME**: neondb
 
 ### Step 3: Configure GitHub Secrets
 
-These secrets are required for the automated workflow to access your database:
-
 1. Go to your GitHub repository
-2. Navigate to: **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret** for each item below:
+2. **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret** and add these 6 secrets:
 
-#### Required Secrets:
+| Secret | Value |
+|:---|:---|
+| `CLOUDFLARE_API_TOKEN` | From https://dash.cloudflare.com/profile/api-tokens |
+| `DB_HOST` | From Neon connection string |
+| `DB_PORT` | 5432 |
+| `DB_USER` | From Neon connection string |
+| `DB_PASSWORD` | From Neon connection string |
+| `DB_NAME` | From Neon connection string |
 
-**CLOUDFLARE_API_TOKEN**
-- Get from: https://dash.cloudflare.com/profile/api-tokens
-- Click "Create Token" → "Radar API" template (or create custom with radar:read permission)
-- Paste the token value
+### Step 4: Done!
 
-**DB_HOST**
-- Your PostgreSQL server hostname
-- Examples: `localhost`, `db.example.com`, RDS endpoint, Cloud SQL IP
-- Default for local: `localhost`
+GitHub Actions will automatically:
+- ✓ Run at 8:00 AM UTC every day
+- ✓ Ingest data from Cloudflare Radar APIs
+- ✓ Store in your Neon database
+- ✓ Verify data integrity
+- ✓ Log all results
 
-**DB_PORT**
-- PostgreSQL port number
-- Default: `5432`
-
-**DB_USER**
-- PostgreSQL username
-- Default: `postgres`
-
-**DB_PASSWORD**
-- PostgreSQL password (use strong password for production)
-
-**DB_NAME**
-- Database name on your PostgreSQL server
-- Default: `internet_outages`
-
-### Step 4: Verify Workflow
+## 📊 Verify Workflow
 
 1. Go to your repository **Actions** tab
-2. You should see **"Daily Data Ingestion"** workflow
+2. Click **"Daily Data Ingestion"** workflow
 3. Click it to see the workflow definition
 4. Optionally test by clicking **"Run workflow"** → **"Run workflow"**
 
@@ -98,56 +85,11 @@ on:
 - For IST (UTC+5:30): Change `0 8` to `30 2` (2:30 AM IST = 8:00 AM UTC)
 - For CST (UTC+8): Change `0 8` to `0 0`
 
-## 🗄️ Database Setup
+## 🗄️ Neon Database
 
-### Option 1: Local PostgreSQL
-```bash
-# Create database and schema
-psql -U postgres -c "CREATE DATABASE internet_outages;"
-psql -d internet_outages -c "CREATE SCHEMA raw;"
-
-# Configure secrets with:
-# DB_HOST: localhost
-# DB_PORT: 5432
-# DB_USER: postgres
-# DB_PASSWORD: (your password)
-# DB_NAME: internet_outages
-```
-
-### Option 2: AWS RDS PostgreSQL
-```bash
-# Create RDS instance with PostgreSQL
-# Then create database:
-psql -h your-rds-endpoint.amazonaws.com -U postgres -c "CREATE DATABASE internet_outages;"
-psql -h your-rds-endpoint.amazonaws.com -d internet_outages -c "CREATE SCHEMA raw;"
-
-# Configure secrets with RDS endpoint and credentials
-```
-
-### Option 3: Google Cloud SQL PostgreSQL
-Similar to RDS - create instance, database, schema, then configure secrets
+Your Neon serverless PostgreSQL database is already created with the required `raw` schema and tables during initial setup. No additional database configuration is needed—your Neon connection string handles everything.
 
 ## ✅ Verification
-
-### Test Locally First (Recommended)
-
-Before scheduling:
-```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Set environment variables
-export CLOUDFLARE_API_TOKEN="your_token"
-export DB_HOST="localhost"
-export DB_USER="postgres"
-export DB_PASSWORD="your_password"
-export DB_NAME="internet_outages"
-
-# Run ingestion scripts
-python ingest_cloudflare.py
-python ingest_ai_bots.py
-python ingest_device_type.py
-```
 
 ### Test GitHub Actions
 
@@ -156,18 +98,24 @@ python ingest_device_type.py
 3. Click the running job to see live logs
 4. Wait for completion and check for any errors
 
-### Verify Data Ingestion
+### Verify Data in Neon
 
-After running:
+After the workflow runs, connect to your Neon database and verify data was ingested:
+
 ```bash
-# Connect to your database
-psql -d internet_outages
+# Using psql with Neon connection string
+psql "postgresql://user:password@ep-xxxx.us-west-2.aws.neon.tech/neondb"
 
-# Check data
+# Check data ingestion
 SELECT COUNT(*) FROM raw.cloudflare_outages;
 SELECT COUNT(*) FROM raw.cloudflare_ai_bots;
 SELECT COUNT(*) FROM raw.cloudflare_device_type;
 ```
+
+Or check via **Neon Dashboard**:
+1. Log in to [neon.tech](https://neon.tech)
+2. Open your project → SQL Editor
+3. Run: `SELECT COUNT(*) FROM raw.cloudflare_outages;`
 
 ## 🔄 Automatic Scheduling
 
@@ -202,20 +150,21 @@ Once GitHub secrets are configured:
 - ✅ Try manual trigger: Actions → "Run workflow" button
 
 ### "Database connection failed" error
-- ✅ Verify all DB secrets are correct
-- ✅ Check database is accessible (firewall rules, security groups, etc.)
-- ✅ Make sure `raw` schema exists
-- ✅ Test locally first
+- ✅ Verify all 6 Neon secrets are configured correctly in GitHub repo
+- ✅ Check that your Neon project is **active** (sometimes paused after inactivity)
+- ✅ Confirm `raw` schema exists in Neon database (check via Neon Dashboard → SQL Editor)
+- ✅ Test Neon connection locally: `psql "postgresql://user:password@ep-xxxx.us-west-2.aws.neon.tech/neondb"`
 
 ### "Invalid API token" error
 - ✅ Verify Cloudflare API token is valid and not expired
 - ✅ Check token has required `radar:read` permission
-- ✅ Regenerate token if needed
+- ✅ Regenerate token from Cloudflare Dashboard if needed
 
 ### Workflow runs but no data appears
-- ✅ Check workflow logs for errors
-- ✅ Verify deduplication isn't silently skipping inserts
-- ✅ Check with: `SELECT * FROM raw.cloudflare_outages LIMIT 1;`
+- ✅ Check workflow logs for errors (Actions tab → workflow run)
+- ✅ Verify deduplication isn't silently skipping inserts: `SELECT * FROM raw.cloudflare_outages LIMIT 1;`
+- ✅ Check Neon project status (re-activate if paused)
+- ✅ Ensure Neon project connection string uses correct `neondb` database name
 
 ## 📈 Next Steps
 

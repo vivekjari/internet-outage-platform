@@ -34,8 +34,29 @@ A Python-based data ingestion platform for monitoring internet outages and netwo
 
 ### Prerequisites
 - Python 3.9+
-- PostgreSQL 12+
+- Neon cloud PostgreSQL account (free at https://neon.tech)
+- Cloudflare API token
 - Git
+
+### Neon Database Setup (2 minutes)
+
+1. **Create Neon Account**
+   - Go to https://neon.tech
+   - Sign up (free tier available)
+   - Create a new project named "internet-outage-platform"
+
+2. **Get Connection Details**
+   - On Neon dashboard, click "Connection string"
+   - Select "Pooled connection" → Python
+   - Copy the connection string (includes host, port, user, password, database)
+
+3. **Extract Credentials**
+   From the connection string, you'll need:
+   - `DB_HOST`: Your Neon endpoint (e.g., ep-cool-lake-abc123.us-east-1.neon.tech)
+   - `DB_PORT`: 5432
+   - `DB_USER`: neondb_owner (or your user)
+   - `DB_PASSWORD`: Your Neon password
+   - `DB_NAME`: neondb (or your database name)
 
 ### Local Installation
 
@@ -58,19 +79,17 @@ A Python-based data ingestion platform for monitoring internet outages and netwo
 
 4. **Configure environment variables**
    ```bash
-   # Create .env file with:
-   export CLOUDFLARE_API_TOKEN="your_token_here"
+   export CLOUDFLARE_API_TOKEN="your_cloudflare_token"
+   export DB_HOST="your-neon-host.neon.tech"
+   export DB_PORT="5432"
+   export DB_USER="neondb_owner"
+   export DB_PASSWORD="your_neon_password"
+   export DB_NAME="neondb"
    ```
 
-5. **Update database configuration** in `config.py`
-   ```python
-   DB_CONFIG = {
-       "host": "your_host",
-       "port": 5432,
-       "database": "internet_outages",
-       "user": "postgres",
-       "password": "your_password"
-   }
+5. **Test local connection**
+   ```bash
+   python ingest_cloudflare.py  # Test ingestion
    ```
 
 6. **Run ingestion scripts**
@@ -89,28 +108,30 @@ A Python-based data ingestion platform for monitoring internet outages and netwo
 
 ## Automated Scheduling
 
-This project uses **GitHub Actions** to run ingestion scripts automatically every day at 8:00 AM UTC.
+This project uses **GitHub Actions** to run ingestion scripts automatically every day at 8:00 AM UTC, storing data in your **Neon cloud database**.
 
-### Workflow Configuration
+### GitHub Actions Workflow
 
-The workflow is defined in `.github/workflows/daily-ingestion.yml` and:
-- Runs on schedule: `0 8 * * *` (8:00 AM UTC daily)
-- Executes all three ingestion scripts in sequence
-- Logs results and errors
-- Can also be triggered manually via GitHub Actions UI
+The workflow is defined in `.github/workflows/daily-ingestion.yml`:
+- ✓ Runs automatically at 8:00 AM UTC daily
+- ✓ Executes all three ingestion scripts in sequence
+- ✓ Connects to your Neon database via secrets
+- ✓ Can also be triggered manually via GitHub Actions UI
 
-### Setting up GitHub Secrets
+### Configure GitHub Secrets (Required)
 
-For automated execution on GitHub, you must configure the following secrets:
+For GitHub Actions to work, set these repository secrets:
 
-1. Go to your GitHub repository → Settings → Secrets and variables → Actions
-2. Add the following secrets:
+1. Go to **GitHub Repository** → **Settings** → **Secrets and variables** → **Actions**
+2. Click **New repository secret** and add:
    - `CLOUDFLARE_API_TOKEN`: Your Cloudflare Radar API token
-   - `DB_HOST`: PostgreSQL host
-   - `DB_PORT`: PostgreSQL port (default: 5432)
-   - `DB_USER`: PostgreSQL username
-   - `DB_PASSWORD`: PostgreSQL password
-   - `DB_NAME`: PostgreSQL database name (default: internet_outages)
+   - `DB_HOST`: Your Neon host (from connection string)
+   - `DB_PORT`: `5432`
+   - `DB_USER`: Your Neon user (e.g., `neondb_owner`)
+   - `DB_PASSWORD`: Your Neon password
+   - `DB_NAME`: Your database name (e.g., `neondb`)
+
+All data will automatically sync to your **Neon PostgreSQL** database every day!
 
 ## Project Structure
 

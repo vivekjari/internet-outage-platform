@@ -1,161 +1,231 @@
 # GitHub Deployment Guide
 
-## Prerequisites
-- GitHub Account
-- Git installed locally
-- Personal Access Token or SSH key configured with GitHub
+## Overview
 
-## Step-by-Step Deployment
+This project is designed to run on **Neon cloud PostgreSQL** with automated daily ingestion via **GitHub Actions**.
 
-### 1. Create a GitHub Repository
+No local database setup required!
 
-1. Go to [github.com](https://github.com) and sign in
-2. Click the "+" icon and select "New repository"
-3. Name it: `internet-outage-platform`
-4. Add description: "Python-based data ingestion platform for monitoring internet outages from Cloudflare Radar APIs"
-5. Choose visibility: Public or Private
-6. **Do NOT** initialize with README, .gitignore, or license (we already have them)
-7. Click "Create repository"
+## Quick Start (5 Minutes)
 
-### 2. Connect Local Repository to GitHub
+### 1. Create Neon Account
+- Go to https://neon.tech
+- Sign up (free account)
+- Create project named "internet-outage-platform"
 
-After creating the repository on GitHub, you'll see instructions. Run these commands in your terminal:
+### 2. Get Connection String
+- On Neon dashboard, click "Connection string"
+- Select "Pooled connection" → Python
+- Copy the string
 
-```bash
-cd /Users/vivekjariwala/Downloads/internet-outage-platform
+### 3. Extract Credentials
+From connection string, extract:
+- `DB_HOST`: Your Neon endpoint
+- `DB_PORT`: 5432
+- `DB_USER`: neondb_owner (or your user)
+- `DB_PASSWORD`: Your password
+- `DB_NAME`: neondb (or your database)
 
-# Add the remote origin (replace USERNAME with your GitHub username)
-git remote add origin https://github.com/USERNAME/internet-outage-platform.git
+### 4. Configure GitHub Secrets
+**Your GitHub Repository** → **Settings** → **Secrets and variables** → **Actions**
 
-# Rename branch to main if needed
-git branch -M main
+Add these 6 secrets:
+| Secret | Value |
+|:---|:---|
+| `DB_HOST` | Your Neon host |
+| `DB_PORT` | 5432 |
+| `DB_USER` | Your Neon user |
+| `DB_PASSWORD` | Your Neon password |
+| `DB_NAME` | Your database name |
+| `CLOUDFLARE_API_TOKEN` | Your Cloudflare API token |
 
-# Push to GitHub
-git push -u origin main
-```
+### 5. Done!
+GitHub Actions will automatically ingest data to Neon daily at 8:00 AM UTC.
 
-**For SSH** (if you have SSH key configured):
-```bash
-git remote add origin git@github.com:USERNAME/internet-outage-platform.git
-git branch -M main
-git push -u origin main
-```
+---
 
-### 3. Configure GitHub Secrets for Automated Scheduling
+## Workflow Details
 
-The GitHub Actions workflow requires database credentials to run:
+The GitHub Actions workflow (`.github/workflows/daily-ingestion.yml`):
+- ✓ Runs automatically every day at **8:00 AM UTC**
+- ✓ Ingests data from 3 Cloudflare Radar API endpoints
+- ✓ Stores in your **Neon PostgreSQL** database
+- ✓ Can be manually triggered anytime via Actions tab
 
-1. Go to your GitHub repository
-2. Click **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret** and add these secrets:
+### Change Schedule Time
 
-| Secret Name | Value | Example |
-|:---|:---|:---|
-| `CLOUDFLARE_API_TOKEN` | Your Cloudflare API token | `aw8TKHPzRTUdVOYVZKnKLo957nKbjc1oNuYc71PY` |
-| `DB_HOST` | PostgreSQL server hostname | `db.example.com` or `localhost` |
-| `DB_PORT` | PostgreSQL port | `5432` |
-| `DB_USER` | PostgreSQL username | `postgres` |
-| `DB_PASSWORD` | PostgreSQL password | `your_secure_password` |
-| `DB_NAME` | Database name | `internet_outages` |
-
-### 4. Enable GitHub Actions
-
-1. Go to your repository
-2. Click **Actions** tab
-3. You should see "Daily Data Ingestion" workflow
-4. Click "Enable workflow" if needed
-
-### 5. Verify Workflow Setup
-
-1. Go to **Actions** → **Daily Data Ingestion**
-2. You can manually trigger it with "Run workflow" button
-3. The workflow will run automatically every day at **8:00 AM UTC**
-
-## Workflow Schedule
-
-The workflow runs on this schedule:
-- **Time**: 8:00 AM UTC every day
-- **What it does**: 
-  - Runs `ingest_cloudflare.py`
-  - Runs `ingest_ai_bots.py`
-  - Runs `ingest_device_type.py`
-  - Verifies all data
-
-To change the schedule time, edit `.github/workflows/daily-ingestion.yml`:
+Edit `.github/workflows/daily-ingestion.yml`, line 4:
 ```yaml
-on:
-  schedule:
-    # Change the cron time (format: minute hour day month weekday)
-    - cron: '0 8 * * *'  # Current: 8:00 AM UTC
+- cron: '0 8 * * *'  # Format: minute hour day month weekday
 ```
 
-**Common cron examples:**
-- `0 0 * * *` = Midnight UTC
-- `0 12 * * *` = Noon UTC
-- `0 14 * * *` = 2:00 PM UTC
-- `0 20 * * *` = 8:00 PM UTC
+Common times:
+- `0 8 * * *` = 8:00 AM UTC
+- `0 13 * * *` = 1:00 PM UTC  (EST: 8 AM)
+- `0 16 * * *` = 4:00 PM UTC  (PST: 8 am)
+- `30 2 * * *` = 2:30 AM UTC  (IST: 8 am)
 
-## Database Setup on Cloud
+---
 
-### For AWS RDS PostgreSQL
-1. Create RDS PostgreSQL instance
-2. Create database: `internet_outages`
-3. Create schema: `raw`
-4. Set `DB_HOST` to your RDS endpoint
-5. Set `DB_USER` and `DB_PASSWORD` as configured
+## What Gets Ingested
 
-### For Google Cloud SQL PostgreSQL
-Similar steps - get the public IP and credentials, configure secrets same way
+### Data Updated Daily (at 8 AM UTC)
 
-## Monitoring & Logs
+**Cloudflare Outages**
+- Internet outage metrics by location
+- 10 locations, 30 days of data
+- ~240 records per day
 
-1. Go to **Actions** tab in GitHub
-2. Click **Daily Data Ingestion**
-3. Click the latest run to see logs
-4. Each ingestion step shows detailed output
-5. Failed steps are clearly marked
+**AI Bots Threats**
+- AI bot traffic by industry
+- 10 industries, 30 days of data
+- ~240 records per day
 
-## Making Code Changes
+**Device Type Metrics**
+- HTTP traffic by device (desktop, mobile, other)
+- 3 device types, 30 days of data
+- ~720 records per day
 
-After making changes locally:
+**Total**: ~1,200 new records added daily
 
+---
+
+## Monitoring
+
+### GitHub Actions Logs
+1. Your repository → **Actions** tab
+2. Click **"Daily Data Ingestion"**
+3. Click latest run for detailed logs
+4. Each step shows ingestion results
+
+### Neon Dashboard
+1. Log in to https://neon.tech
+2. Click your project
+3. **Monitoring** tab shows:
+   - CPU usage
+   - Connections
+   - Data transferred
+
+### Query Data
 ```bash
-# Make your changes
-git add .
-git commit -m "Description of changes"
-git push origin main
+# Set environment variables
+export PGHOST="your-neon-host"
+export PGUSER="your-user"
+export PGPASSWORD="your-password"
+export PGDATABASE="neondb"
+
+# Query your data
+psql -c "SELECT COUNT(*) FROM raw.cloudflare_outages;"
 ```
 
-The workflow will automatically use the latest code.
+---
 
 ## Troubleshooting
 
-### Workflow won't run
-- Check if Actions are enabled in repository Settings
-- Verify secrets are correctly configured
-- Check that `.github/workflows/daily-ingestion.yml` exists
+### "Connection Refused" in GitHub Actions
+- Verify all 6 secrets are correct
+- Check Neon database is running
+- Test credentials locally first
 
-### Database connection errors
-- Verify all secrets are correct
-- Check database is accessible from GitHub Actions (may need firewall rules)
+### "No data appearing"
+- Check GitHub Actions log for errors
+- Verify secrets match Neon credentials
 - Ensure `raw` schema exists in database
 
-### API errors
-- Verify Cloudflare API token is valid and not expired
-- Check API token has proper permissions
-- Monitor Cloudflare API status page
+### "SSL/TLS error"
+- Neon requires SSL (already configured)
+- Connection string includes `?sslmode=require`
+- No action needed, this is expected
 
-## Next Steps
+### GitHub Actions not running
+- Wait 5 minutes after first push
+- Check Actions are enabled in repository Settings
+- Manually trigger: Actions tab → "Run workflow"
 
-1. Configure your cloud database (RDS, Cloud SQL, etc.)
-2. Add secrets to GitHub repository
-3. Manually trigger workflow to test
-4. Monitor first automated run
-5. Adjust cron schedule if needed
+---
+
+## Managing the Database
+
+### Rotate Password
+If you need to change your Neon password:
+
+1. In Neon: Project → Roles → Edit user → Change password
+2. Update GitHub secrets with new password
+3. Workflow will use new credentials on next run
+
+### Backup Data
+Neon automatically manages backups. To manually export:
+```bash
+pg_dump -h your-host.neon.tech \
+        -U your-user \
+        -d your-database > backup.sql
+```
+
+### Query Data Directly
+Neon provides a web SQL editor in the dashboard for quick queries.
+
+---
+
+## Neon Pricing
+
+**Free Tier (Perfect for this project)**
+- ✓ Unlimited databases
+- ✓ 50 GB data transfer/month
+- ✓ No setup fees
+- ✓ Your usage: ~1,200 records/day = $0/month
+
+Upgrade only if you exceed transfer limits.
+
+---
+
+## Security
+
+✅ **DO:**
+- Store credentials in GitHub Secrets (never in code)
+- Use strong passwords
+- Rotate passwords every 3 months
+- Monitor GitHub Actions logs
+
+❌ **DON'T:**
+- Commit passwords to GitHub
+- Share connection strings
+- Hardcode credentials in Python
+- Use weak passwords
+
+---
+
+## Disabling Automation
+
+To stop automatic ingestion:
+
+1. Go to `.github/workflows/daily-ingestion.yml`
+2. Comment out the schedule section:
+```yaml
+on:
+  # schedule:
+  #   - cron: '0 8 * * *'
+  workflow_dispatch:
+```
+
+Can still manually trigger from Actions tab.
+
+---
 
 ## Support
 
-For issues, check:
-- GitHub Actions logs
-- Database logs
-- API status pages
+For issues:
+- Check GitHub Actions logs first
+- Verify Neon credentials
+- Test locally with `python ingest_cloudflare.py`
+- See `NEON_QUICK_START.md` for setup help
+
+---
+
+## Next Steps
+
+1. ✅ Create Neon account (2 min)
+2. ✅ Get connection credentials (1 min)
+3. ✅ Add GitHub secrets (2 min)
+4. ✅ Done! Automation is active
+
+**Your platform is now live with automatic daily data ingestion!** 🚀
